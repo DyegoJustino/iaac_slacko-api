@@ -1,0 +1,48 @@
+- hosts: remoto
+  gather_facts: False
+  debugger: on_skipped
+
+  tasks:
+  - name: Instalando mongo
+    apt:
+      name: mongo*
+      update_cache: yes
+      state: present
+
+  - name: Habilitar o Mongo no boot
+    service:
+        name: mongodb
+        enabled: yes
+        state: started
+
+  - name: Copiando artefatos para o servidor
+    copy:
+       src: "{{ item }}"
+       dest: "/root/slacko-api/{{ item }}"
+       owner: root
+       group: root
+    with_items:
+      - main.py
+      - requeriments.txt 
+
+  - name: checar imagem
+    #command: "docker image ls | grep impacta"
+    command: docker image ls --filter reference='mongo-express:0.54.0'
+    register: docker_check
+  - debug: msg={{ docker_check }}
+
+  - name: Construindo a imagem
+    command: docker build -t mongo-express:0.54.0 .
+    args:
+       chdir: /root/
+    register: docker_build
+    tags:
+      - docker-build
+
+  - name: Executando o docker-compose
+    command: docker-compose up -d
+    args:
+       chdir: /root/
+    register: docker_compose_up
+    tags:
+      - docker-start
